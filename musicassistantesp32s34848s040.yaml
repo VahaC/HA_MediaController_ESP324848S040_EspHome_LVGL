@@ -95,7 +95,18 @@ logger:
 api:
   encryption:
     key: !secret musicassistantesp32s34848s040_encryption_key
-
+  on_client_connected:
+    then:
+      - lambda: |-
+          // -- Force reload album art on HA reconnect --
+          std::string pic = id(entity_picture).state;
+          if (pic != "None" && !pic.empty()) {
+            std::string full_url = "${ha_url}" + pic;
+            ESP_LOGD("img", "Reloading art on reconnect: %s", full_url.c_str());
+            id(album_art).set_url(full_url.c_str());
+            id(album_art).update();
+          }
+          
 ota:
   - platform: esphome
     password: !secret musicassistantesp32s34848s040_ota_password
@@ -443,6 +454,10 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
+            if (x == "None" || x.empty()) {
+              ESP_LOGD("img", "No album art available, skipping");
+              return;
+            }
             std::string full_url = "${ha_url}" + x;
             ESP_LOGD("img", "Loading art: %s", full_url.c_str());
             id(album_art).set_url(full_url.c_str());
@@ -484,7 +499,8 @@ font:
   - file: "gfonts://Roboto"
     id: roboto_16
     size: 16
-    glyphs: &common_glyphs "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()'&ëéàüöäïîèêâûôùœæçñãõøåðþßýÿıİğšžčćđżźąęłóńáíúÁÉÀÈÌÒÙÂÊÎÔÛÄËÏÖÜÓÍÚÑÃÕØÅÆŒÇŽČŠĆĐŻŹĄĘŁ@#$+="
+    glyphs: &common_glyphs >-
+      АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()'&"ëéàüöäïîèêâûôùœæçñãõøåðþßýÿıİğšžčćđżźąęłóńáíúÁÉÀÈÌÒÙÂÊÎÔÛÄËÏÖÜÓÍÚÑÃÕØÅÆŒÇŽČŠĆĐŻŹĄĘŁ@#$+=
 
   - file: "gfonts://Roboto"
     id: roboto_22
