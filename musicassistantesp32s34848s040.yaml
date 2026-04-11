@@ -1,0 +1,618 @@
+substitutions:
+  device_name: media-controller
+  player_entity: media_player.jbl_bar_91_true_2
+
+esphome:
+  name: musicassistantesp32s34848s040
+  friendly_name: Media Controller
+  on_boot:
+    priority: -100
+    then:
+      - logger.log: "Device booted and ready"
+      - lambda: |-
+          lv_obj_set_style_text_align(id(lbl_title), LV_TEXT_ALIGN_CENTER, 0);
+          lv_obj_set_style_text_align(id(lbl_artist), LV_TEXT_ALIGN_CENTER, 0);
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: ESP32S3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+
+api:
+  encryption:
+    key: !secret musicassistantesp32s34848s040_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret musicassistantesp32s34848s040_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Musicassistantesp32S34848S040"
+    password: "JvKVU1H4knDO"
+
+captive_portal:
+
+# -------------------- SPI / I2C --------------------
+spi:
+  clk_pin: GPIO48
+  mosi_pin: GPIO47
+  interface: hardware
+  id: spihwd
+
+i2c:
+  id: touchscreen_bus
+  sda: GPIO19
+  scl:
+    number: 45
+    ignore_strapping_warning: true
+
+# -------------------- ПІДСВІТКА --------------------
+output:
+  - platform: ledc
+    pin: GPIO38
+    id: backlight_output
+
+light:
+  - platform: monochromatic
+    output: backlight_output
+    id: backlight
+    name: "Backlight"
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+
+# -------------------- DISPLAY (ST7701S RGB) --------------------
+display:
+  - platform: st7701s
+    id: tft_display
+    spi_id: spihwd
+    dimensions:
+      width: 480
+      height: 480
+    spi_mode: MODE3
+    data_rate: 2MHz
+    color_order: RGB
+    invert_colors: false
+    cs_pin: 39
+    de_pin: 18
+    hsync_pin: 16
+    vsync_pin: 17
+    pclk_pin: 21
+    pclk_frequency: 12MHz
+    pclk_inverted: false
+    hsync_pulse_width: 8
+    hsync_front_porch: 10
+    hsync_back_porch: 20
+    vsync_pulse_width: 8
+    vsync_front_porch: 10
+    vsync_back_porch: 10
+    auto_clear_enabled: false
+    update_interval: never
+    init_sequence:
+      - 1
+      - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10]
+      - [0xCD, 0x00]
+    data_pins:
+      red: [11, 12, 13, 14, 0]
+      green: [8, 20, 3, 46, 9, 10]
+      blue: [4, 5, 6, 7, 15]
+
+# -------------------- TOUCHSCREEN --------------------
+touchscreen:
+  - platform: gt911
+    id: tft_touch
+    display: tft_display
+
+# -------------------- СЕНСОРИ З HA --------------------
+sensor:
+  - platform: homeassistant
+    id: volume_level
+    entity_id: ${player_entity}
+    attribute: volume_level
+    on_value:
+      then:
+        - lambda: |-
+            std::string vol = "Volume: " + to_string((int)(x * 100)) + "%";
+            lv_label_set_text(id(lbl_volume), vol.c_str());
+
+text_sensor:
+  - platform: homeassistant
+    id: media_title
+    entity_id: ${player_entity}
+    attribute: media_title
+    on_value:
+      then:
+        - lambda: |-
+            lv_label_set_text(id(lbl_title), x.c_str());
+            lv_obj_set_style_text_align(id(lbl_title), LV_TEXT_ALIGN_CENTER, 0);
+        #- online_image.set_url:
+        #    id: album_art
+        #    url: "http://192.168.1.100:8123/api/media_player_proxy/media_player.jbl_bar_91_true_2?token=2cf71ed882fbbba76cf07e21fe9de82daf50fb8878e41afbc8910361d9bebc31"
+
+  - platform: homeassistant
+    id: entity_picture
+    entity_id: ${player_entity}
+    attribute: entity_picture_local
+    on_value:
+      then:
+        - lambda: |-
+            std::string full_url = "http://192.168.1.100:8123" + x;
+            ESP_LOGD("img", "Loading art: %s", full_url.c_str());
+            id(album_art).set_url(full_url.c_str());
+            id(album_art).update();
+
+  - platform: homeassistant
+    id: media_artist
+    entity_id: ${player_entity}
+    attribute: media_artist
+    on_value:
+      then:
+        - lambda: |-
+            lv_label_set_text(id(lbl_artist), x.c_str());
+            lv_obj_set_style_text_align(id(lbl_artist), LV_TEXT_ALIGN_CENTER, 0);
+
+  - platform: homeassistant
+    id: player_state
+    entity_id: ${player_entity}
+    on_value:
+      then:
+        - lambda: |-
+            lv_label_set_text(id(lbl_play_pause),
+              x == "playing" ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
+
+  - platform: homeassistant
+    id: selected_playlist
+    entity_id: input_select.music_playlist
+    on_value:
+      then:
+        - lambda: |-
+            lv_label_set_text(id(lbl_playlist), x.c_str());
+
+font:
+  - file: "gfonts://Roboto"
+    id: roboto_16
+    size: 16
+    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+
+  - file: "gfonts://Roboto"
+    id: roboto_22
+    size: 22
+    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+
+  - file: "gfonts://Roboto"
+    id: roboto_30
+    size: 30
+    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+
+  - file: "gfonts://Roboto"
+    id: roboto_36
+    size: 36
+    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+
+http_request:
+  verify_ssl: false
+  timeout: 10s
+
+# --------------- Background image --------------------
+online_image:
+  - url: "http://192.168.1.100:8123/api/media_player_proxy/media_player.jbl_bar_91_true_2?token=2cf71ed882fbbba76cf07e21fe9de82daf50fb8878e41afbc8910361d9bebc31"
+    id: album_art
+    format: JPEG
+    type: RGB565
+    update_interval: never
+    buffer_size: 4096
+    on_download_finished:
+      then:
+        - lvgl.image.update:
+            id: album_art_img
+            src: album_art
+    on_error:
+      then:
+        - logger.log: "Album art download failed"
+
+# -------------------- LVGL UI --------------------
+lvgl:
+  displays:
+    - tft_display
+  touchscreens:
+    - tft_touch
+  color_depth: 16
+  bg_color: 0x0a0a14
+  default_font: roboto_22
+
+  style_definitions:
+    # Базова кнопка керування
+    - id: style_ctrl_btn
+      bg_color: 0x12122a
+      bg_opa: COVER
+      border_color: 0x00cfff
+      border_width: 1
+      radius: 40
+      text_color: 0xffffff
+      shadow_width: 0
+      pad_all: 0
+
+    - id: style_ctrl_btn_pressed
+      bg_color: 0x00cfff
+      text_color: 0x0a0a14
+
+    # Велика центральна кнопка play/pause
+    - id: style_play_btn
+      bg_color: 0x00cfff
+      bg_opa: COVER
+      border_width: 0
+      radius: 50
+      text_color: 0x0a0a14
+      shadow_width: 20
+      shadow_color: 0x00cfff
+      shadow_opa: 80%       
+      pad_all: 0
+
+    - id: style_play_btn_pressed
+      bg_color: 0x0090bb
+      shadow_width: 5
+
+    # Кнопка гучності
+    - id: style_vol_btn
+      bg_color: 0x1a1a35
+      bg_opa: COVER
+      border_color: 0x2a2a55
+      border_width: 1
+      radius: 8
+      text_color: 0x00cfff
+      shadow_width: 0
+      pad_all: 0
+
+    - id: style_vol_btn_pressed
+      bg_color: 0x2a2a55
+
+    # Плейлист кнопка внизу
+    - id: style_playlist_btn
+      bg_color: 0x0a0a14
+      bg_opa: COVER
+      border_color: 0x2a2a55
+      border_width: 1
+      radius: 20
+      text_color: 0x5555aa
+      shadow_width: 0
+      pad_all: 0
+
+    - id: style_playlist_btn_pressed
+      bg_color: 0x12122a
+      text_color: 0x00cfff
+
+  pages:
+    # ════════════════════════════════════════
+    # СТОРІНКА 1 — Плеєр
+    # ════════════════════════════════════════
+    - id: page_player
+      widgets:
+
+        # ── Фонова обкладинка альбому ──
+        - image:
+            id: album_art_img
+            src: album_art
+            align: CENTER
+            y: 0
+            width: 480
+            height: 480
+            zoom: 0.96
+            image_recolor: 0x0a0a14
+            image_recolor_opa: 60%
+
+        # ── Декоративна зовнішня дуга (прогрес або просто дизайн) ──
+        - arc:
+            id: progress_arc
+            width: 400
+            height: 400
+            align: CENTER
+            y: -30
+            value: 0
+            min_value: 0
+            max_value: 100
+            start_angle: 135
+            end_angle: 45
+            arc_color: 0x1a1a35
+            arc_width: 4
+            indicator:
+              arc_color: 0x00cfff
+              arc_width: 4
+            adjustable: false
+
+        # ── Внутрішнє коло (декор) ──
+        - button:
+            width: 320
+            height: 200
+            align: CENTER
+            y: -50
+            styles: style_play_btn
+            bg_opa: 60%
+            checkable: false
+            clickable: false
+            widgets:
+              - label:
+                  text: ""
+                  align: CENTER
+
+        # ── Назва треку ──
+        - label:
+            id: lbl_title
+            text: "No track"
+            text_color: 0xffffff
+            text_font: roboto_36
+            align: CENTER
+            y: -95
+            width: 300
+            long_mode: SCROLL_CIRCULAR
+            text_align: CENTER
+
+        # ── Виконавець ──
+        - label:
+            id: lbl_artist
+            text: "Unknown"
+            text_color: 0x5588cc
+            text_font: roboto_30
+            align: CENTER
+            y: -35
+            width: 300
+            long_mode: SCROLL_CIRCULAR
+            text_align: CENTER
+
+        # ── Гучність по центру кола ──
+        - label:
+            id: lbl_volume
+            text: "--"
+            text_color: 0x334466
+            text_font: montserrat_24
+            align: CENTER
+            y: 15
+
+        # ── Кнопка PREV ──
+        - button:
+            id: btn_prev
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 80
+            height: 80
+            align: CENTER
+            x: -155
+            y: 130
+            bg_opa: 60%
+            widgets:
+              - label:
+                  text: !lambda return std::string(LV_SYMBOL_PREV);
+                  text_font: montserrat_24
+                  text_color: 0x00cfff
+                  align: CENTER
+            on_click:
+              - logger.log: "Prev button pressed"
+              - homeassistant.service:
+                  service: media_player.media_previous_track
+                  data:
+                    entity_id: media_player.jbl_bar_91_true_2
+
+        # ── Кнопка PLAY/PAUSE ──
+        - button:
+            id: btn_play_pause
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 100
+            height: 100
+            align: CENTER
+            y: 130
+            bg_opa: 60%
+            widgets:
+              - label:
+                  id: lbl_play_pause
+                  text: !lambda return std::string(LV_SYMBOL_PLAY);
+                  text_font: montserrat_28
+                  text_color: 0x00cfff
+                  align: CENTER
+            on_click:
+              - logger.log: "Play/Pause button pressed"
+              - homeassistant.service:
+                  service: media_player.media_play_pause
+                  data:
+                    entity_id: media_player.jbl_bar_91_true_2
+
+        # ── Кнопка NEXT ──
+        - button:
+            id: btn_next
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 80
+            height: 80
+            align: CENTER
+            x: 155
+            y: 130
+            bg_opa: 60%
+            widgets:
+              - label:
+                  text: !lambda return std::string(LV_SYMBOL_NEXT);
+                  text_font: montserrat_24
+                  text_color: 0x00cfff
+                  align: CENTER
+            on_click:
+              - logger.log: "Next track button pressed"
+              - homeassistant.service:
+                  service: media_player.media_next_track
+                  data:
+                    entity_id: media_player.jbl_bar_91_true_2
+
+        # ── VOL- ──
+        - button:
+            id: btn_vol_down
+            styles: style_vol_btn
+            pressed:
+              styles: style_vol_btn_pressed
+            width: 90
+            height: 45
+            align: BOTTOM_LEFT
+            x: 20
+            y: -5
+            bg_opa: 60%
+            widgets:
+              - label:
+                  text: !lambda return std::string(LV_SYMBOL_VOLUME_MID);
+                  text_font: montserrat_16
+                  align: CENTER
+            on_click:
+              - logger.log: "Vol - button pressed"
+              - homeassistant.service:
+                  service: media_player.volume_down
+                  data:
+                    entity_id: media_player.jbl_bar_91_true_2
+
+        # ── VOL+ ──
+        - button:
+            id: btn_vol_up
+            styles: style_vol_btn
+            pressed:
+              styles: style_vol_btn_pressed
+            width: 90
+            height: 45
+            align: BOTTOM_RIGHT
+            x: -20
+            y: -5
+            bg_opa: 60%
+            widgets:
+              - label:
+                  text: !lambda return std::string(LV_SYMBOL_VOLUME_MAX);
+                  text_font: montserrat_16
+                  align: CENTER
+            on_click:
+              - logger.log: "Vol + button pressed"
+              - homeassistant.service:
+                  service: media_player.volume_up
+                  data:
+                    entity_id: media_player.jbl_bar_91_true_2
+
+        # ── Плейлісти ──
+        - button:
+            id: btn_to_playlists
+            styles: style_playlist_btn
+            pressed:
+              styles: style_playlist_btn_pressed
+            width: 160
+            height: 38
+            align: BOTTOM_MID
+            y: -5
+            bg_opa: 60%
+            widgets:
+              - label:
+                  id: lbl_playlist
+                  text: !lambda return std::string(LV_SYMBOL_LIST);
+                  text_font: montserrat_14
+                  align: CENTER
+            on_click:
+              - lvgl.page.show: page_playlists
+
+    # ════════════════════════════════════════
+    # СТОРІНКА 2 — Плейлісти (залишається)
+    # ════════════════════════════════════════
+    - id: page_playlists
+      widgets:
+        - label:
+            text: "Playlists"
+            text_color: 0xffffff
+            text_font: roboto_22
+            align: TOP_MID
+            y: 15
+
+        - button:
+            styles: style_vol_btn
+            pressed:
+              styles: style_vol_btn_pressed
+            width: 100
+            height: 40
+            align: TOP_LEFT
+            x: 10
+            y: 10
+            widgets:
+              - label:
+                  text: "< Back"
+                  text_font: roboto_16
+                  align: CENTER
+            on_click:
+              - lvgl.page.show: page_player
+
+        - button:
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 400
+            height: 60
+            align: TOP_MID
+            y: 75
+            widgets:
+              - label:
+                  id: lbl_pl_0
+                  text: "..."
+                  text_font: roboto_22
+                  align: CENTER
+            on_click:
+              - lvgl.page.show: page_player
+
+        - button:
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 400
+            height: 60
+            align: TOP_MID
+            y: 150
+            widgets:
+              - label:
+                  id: lbl_pl_1
+                  text: "..."
+                  text_font: roboto_22
+                  align: CENTER
+            on_click:
+              - lvgl.page.show: page_player
+
+        - button:
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 400
+            height: 60
+            align: TOP_MID
+            y: 225
+            widgets:
+              - label:
+                  id: lbl_pl_2
+                  text: "..."
+                  text_font: roboto_22
+                  align: CENTER
+            on_click:
+              - lvgl.page.show: page_player
+
+        - button:
+            styles: style_ctrl_btn
+            pressed:
+              styles: style_ctrl_btn_pressed
+            width: 400
+            height: 60
+            align: TOP_MID
+            y: 300
+            widgets:
+              - label:
+                  id: lbl_pl_3
+                  text: "..."
+                  text_font: roboto_22
+                  align: CENTER
+            on_click:
+              - lvgl.page.show: page_player
