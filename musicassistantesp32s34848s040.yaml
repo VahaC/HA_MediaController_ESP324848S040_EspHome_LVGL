@@ -1,6 +1,7 @@
 substitutions:
   device_name: media-controller
   player_entity: media_player.jbl_bar_91_true_2
+  ha_url: "http://192.168.1.100:8123"
 
 esphome:
   name: musicassistantesp32s34848s040
@@ -8,10 +9,75 @@ esphome:
   on_boot:
     priority: -100
     then:
-      - logger.log: "Device booted and ready"
       - lambda: |-
+          // -- Center-align track title and artist labels --
           lv_obj_set_style_text_align(id(lbl_title), LV_TEXT_ALIGN_CENTER, 0);
           lv_obj_set_style_text_align(id(lbl_artist), LV_TEXT_ALIGN_CENTER, 0);
+
+          // -- Apply saved arc background color --
+          unsigned long ca = strtoul(id(color_arc).state.c_str(), nullptr, 16);
+          lv_color_t col_arc = lv_color_make((ca>>16)&0xFF, (ca>>8)&0xFF, ca&0xFF);
+          lv_obj_set_style_arc_color(id(progress_arc), col_arc, LV_PART_MAIN);
+
+          // -- Apply saved arc indicator color --
+          unsigned long ci = strtoul(id(color_arc_indicator).state.c_str(), nullptr, 16);
+          lv_color_t col_ind = lv_color_make((ci>>16)&0xFF, (ci>>8)&0xFF, ci&0xFF);
+          lv_obj_set_style_arc_color(id(progress_arc), col_ind, LV_PART_INDICATOR);
+
+          // -- Apply saved arc opacity --
+          lv_obj_set_style_arc_opa(id(progress_arc), (int)id(arc_opacity).state, LV_PART_MAIN);
+          lv_obj_set_style_arc_opa(id(progress_arc), (int)id(arc_opacity).state, LV_PART_INDICATOR);
+
+          // -- Apply saved decoration circle color --
+          unsigned long c1 = strtoul(id(color_decoration).state.c_str(), nullptr, 16);
+          lv_color_t col1 = lv_color_make((c1>>16)&0xFF, (c1>>8)&0xFF, c1&0xFF);
+          lv_obj_set_style_bg_color(id(btn_decoration), col1, 0);
+          lv_obj_set_style_shadow_color(id(btn_decoration), col1, 0);
+
+          // -- Apply saved track title color --
+          unsigned long c2 = strtoul(id(color_title).state.c_str(), nullptr, 16);
+          lv_color_t col2 = lv_color_make((c2>>16)&0xFF, (c2>>8)&0xFF, c2&0xFF);
+          lv_obj_set_style_text_color(id(lbl_title), col2, 0);
+
+          // -- Apply saved artist name color --
+          unsigned long c3 = strtoul(id(color_artist).state.c_str(), nullptr, 16);
+          lv_color_t col3 = lv_color_make((c3>>16)&0xFF, (c3>>8)&0xFF, c3&0xFF);
+          lv_obj_set_style_text_color(id(lbl_artist), col3, 0);
+
+          // -- Apply saved volume label color --
+          unsigned long c4 = strtoul(id(color_volume).state.c_str(), nullptr, 16);
+          lv_color_t col4 = lv_color_make((c4>>16)&0xFF, (c4>>8)&0xFF, c4&0xFF);
+          lv_obj_set_style_text_color(id(lbl_volume), col4, 0);
+
+          // -- Apply saved button border and icon color --
+          unsigned long c5 = strtoul(id(color_buttons).state.c_str(), nullptr, 16);
+          lv_color_t col5 = lv_color_make((c5>>16)&0xFF, (c5>>8)&0xFF, c5&0xFF);
+          lv_obj_set_style_border_color(id(btn_prev), col5, 0);
+          lv_obj_set_style_border_color(id(btn_play_pause), col5, 0);
+          lv_obj_set_style_border_color(id(btn_next), col5, 0);
+          lv_obj_set_style_border_color(id(btn_vol_down), col5, 0);
+          lv_obj_set_style_border_color(id(btn_vol_up), col5, 0);
+          lv_obj_set_style_border_color(id(btn_to_playlists), col5, 0);
+          lv_obj_set_style_text_color(lv_obj_get_child(id(btn_prev), 0), col5, 0);
+          lv_obj_set_style_text_color(lv_obj_get_child(id(btn_play_pause), 0), col5, 0);
+          lv_obj_set_style_text_color(lv_obj_get_child(id(btn_next), 0), col5, 0);
+          lv_obj_set_style_text_color(lv_obj_get_child(id(btn_vol_down), 0), col5, 0);
+          lv_obj_set_style_text_color(lv_obj_get_child(id(btn_vol_up), 0), col5, 0);
+          lv_obj_set_style_text_color(lv_obj_get_child(id(btn_to_playlists), 0), col5, 0);
+
+          // -- Apply saved album art opacity --
+          lv_obj_set_style_img_opa(id(album_art_img), (int)id(album_art_opacity).state, 0);
+
+          // -- Apply saved decoration circle opacity --
+          lv_obj_set_style_bg_opa(id(btn_decoration), (int)id(deco_opacity).state, 0);
+
+          // -- Apply saved button background opacity --
+          lv_obj_set_style_bg_opa(id(btn_prev), (int)id(btn_opacity).state, 0);
+          lv_obj_set_style_bg_opa(id(btn_play_pause), (int)id(btn_opacity).state, 0);
+          lv_obj_set_style_bg_opa(id(btn_next), (int)id(btn_opacity).state, 0);
+          lv_obj_set_style_bg_opa(id(btn_vol_down), (int)id(btn_opacity).state, 0);
+          lv_obj_set_style_bg_opa(id(btn_vol_up), (int)id(btn_opacity).state, 0);
+          lv_obj_set_style_bg_opa(id(btn_to_playlists), (int)id(btn_opacity).state, 0);
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -57,19 +123,19 @@ i2c:
     number: 45
     ignore_strapping_warning: true
 
-# -------------------- ПІДСВІТКА --------------------
+# -------------------- BACKLIGHT --------------------
 output:
   - platform: ledc
     pin: GPIO38
     id: backlight_output
+    frequency: 1000Hz
 
 light:
   - platform: monochromatic
     output: backlight_output
     id: backlight
     name: "Backlight"
-    restore_mode: ALWAYS_ON
-    default_transition_length: 0s
+    restore_mode: RESTORE_DEFAULT_ON
 
 # -------------------- DISPLAY (ST7701S RGB) --------------------
 display:
@@ -113,8 +179,214 @@ touchscreen:
     id: tft_touch
     display: tft_display
 
-# -------------------- СЕНСОРИ З HA --------------------
+# -------------------- COLOR CONTROLS (text fields in HA) --------------------
+text:
+  # -- Progress ring background color (hex, e.g. 1a1a35) --
+  - platform: template
+    name: "Progress Ring Color"
+    id: color_arc
+    mode: text
+    initial_value: "1a1a35"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_arc_color(id(progress_arc), col, LV_PART_MAIN);
+
+  # -- Progress ring fill (indicator) color --
+  - platform: template
+    name: "Progress Ring Fill Color"
+    id: color_arc_indicator
+    mode: text
+    initial_value: "00cfff"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_arc_color(id(progress_arc), col, LV_PART_INDICATOR);
+
+  # -- Decoration circle background color --
+  - platform: template
+    name: "Decoration Color"
+    id: color_decoration
+    mode: text
+    initial_value: "00cfff"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_bg_color(id(btn_decoration), col, 0);
+            lv_obj_set_style_shadow_color(id(btn_decoration), col, 0);
+
+  # -- Track title text color --
+  - platform: template
+    name: "Title Color"
+    id: color_title
+    mode: text
+    initial_value: "ffffff"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_text_color(id(lbl_title), col, 0);
+
+  # -- Artist name text color --
+  - platform: template
+    name: "Artist Color"
+    id: color_artist
+    mode: text
+    initial_value: "5588cc"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_text_color(id(lbl_artist), col, 0);
+
+  # -- Volume label text color --
+  - platform: template
+    name: "Volume Color"
+    id: color_volume
+    mode: text
+    initial_value: "334466"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_text_color(id(lbl_volume), col, 0);
+
+  # -- Control buttons border and icon color --
+  - platform: template
+    name: "Buttons Color"
+    id: color_buttons
+    mode: text
+    initial_value: "00cfff"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            unsigned long c = strtoul(x.c_str(), nullptr, 16);
+            lv_color_t col = lv_color_make((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
+            lv_obj_set_style_border_color(id(btn_prev), col, 0);
+            lv_obj_set_style_border_color(id(btn_play_pause), col, 0);
+            lv_obj_set_style_border_color(id(btn_next), col, 0);
+            lv_obj_set_style_border_color(id(btn_vol_down), col, 0);
+            lv_obj_set_style_border_color(id(btn_vol_up), col, 0);
+            lv_obj_set_style_border_color(id(btn_to_playlists), col, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(btn_prev), 0), col, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(btn_play_pause), 0), col, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(btn_next), 0), col, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(btn_vol_down), 0), col, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(btn_vol_up), 0), col, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(btn_to_playlists), 0), col, 0);
+
+# -------------------- OPACITY CONTROLS (sliders in HA, range 0-255) --------------------
+number:
+  # -- Album art image opacity --
+  - platform: template
+    name: "Album Art Opacity"
+    id: album_art_opacity
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 255
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            lv_obj_set_style_img_opa(id(album_art_img), (int)x, 0);
+
+  # -- Progress ring opacity --
+  - platform: template
+    name: "Progress Ring Opacity"
+    id: arc_opacity
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 255
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            lv_obj_set_style_arc_opa(id(progress_arc), (int)x, LV_PART_MAIN);
+            lv_obj_set_style_arc_opa(id(progress_arc), (int)x, LV_PART_INDICATOR);
+
+  # -- Decoration circle opacity --
+  - platform: template
+    name: "Decoration Opacity"
+    id: deco_opacity
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 153
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            lv_obj_set_style_bg_opa(id(btn_decoration), (int)x, 0);
+
+  # -- Control buttons background opacity --
+  - platform: template
+    name: "Buttons Opacity"
+    id: btn_opacity
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 153
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - lambda: |-
+            lv_obj_set_style_bg_opa(id(btn_prev), (int)x, 0);
+            lv_obj_set_style_bg_opa(id(btn_play_pause), (int)x, 0);
+            lv_obj_set_style_bg_opa(id(btn_next), (int)x, 0);
+            lv_obj_set_style_bg_opa(id(btn_vol_down), (int)x, 0);
+            lv_obj_set_style_bg_opa(id(btn_vol_up), (int)x, 0);
+            lv_obj_set_style_bg_opa(id(btn_to_playlists), (int)x, 0);
+
+# -------------------- PLAYBACK PROGRESS (updates arc every second) --------------------
+interval:
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            lambda: return id(player_state).state == "playing";
+          then:
+            - lambda: |-
+                float pos = id(media_position).state + 1.0f;
+                float dur = id(media_duration).state;
+                if (dur > 0) {
+                  if (pos > dur) pos = dur;
+                  id(media_position).publish_state(pos);
+                  int progress = (int)((pos / dur) * 100);
+                  lv_arc_set_value(id(progress_arc), progress);
+                }
+
+# -------------------- HA SENSORS --------------------
 sensor:
+  # -- Speaker volume level (0.0 - 1.0) --
   - platform: homeassistant
     id: volume_level
     entity_id: ${player_entity}
@@ -125,7 +397,33 @@ sensor:
             std::string vol = "Volume: " + to_string((int)(x * 100)) + "%";
             lv_label_set_text(id(lbl_volume), vol.c_str());
 
+  # -- Track total duration in seconds --
+  - platform: homeassistant
+    id: media_duration
+    entity_id: ${player_entity}
+    attribute: media_duration
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGD("progress", "Duration received: %.1f", x);
+
+  # -- Current playback position in seconds --
+  # -- On each update from HA, arc is snapped to accurate position --
+  - platform: homeassistant
+    id: media_position
+    entity_id: ${player_entity}
+    attribute: media_position
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGD("progress", "Position received: %.1f", x);
+            if (id(media_duration).state > 0) {
+              int progress = (int)((x / id(media_duration).state) * 100);
+              lv_arc_set_value(id(progress_arc), progress);
+            }
+
 text_sensor:
+  # -- Track title --
   - platform: homeassistant
     id: media_title
     entity_id: ${player_entity}
@@ -135,10 +433,9 @@ text_sensor:
         - lambda: |-
             lv_label_set_text(id(lbl_title), x.c_str());
             lv_obj_set_style_text_align(id(lbl_title), LV_TEXT_ALIGN_CENTER, 0);
-        #- online_image.set_url:
-        #    id: album_art
-        #    url: "http://192.168.1.100:8123/api/media_player_proxy/media_player.jbl_bar_91_true_2?token=2cf71ed882fbbba76cf07e21fe9de82daf50fb8878e41afbc8910361d9bebc31"
 
+  # -- Album art URL (relative path from HA) --
+  # -- Prefixed with ha_url substitution to form full URL --
   - platform: homeassistant
     id: entity_picture
     entity_id: ${player_entity}
@@ -146,11 +443,12 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
-            std::string full_url = "http://192.168.1.100:8123" + x;
+            std::string full_url = "${ha_url}" + x;
             ESP_LOGD("img", "Loading art: %s", full_url.c_str());
             id(album_art).set_url(full_url.c_str());
             id(album_art).update();
 
+  # -- Artist name --
   - platform: homeassistant
     id: media_artist
     entity_id: ${player_entity}
@@ -161,6 +459,7 @@ text_sensor:
             lv_label_set_text(id(lbl_artist), x.c_str());
             lv_obj_set_style_text_align(id(lbl_artist), LV_TEXT_ALIGN_CENTER, 0);
 
+  # -- Player state: playing / paused / idle --
   - platform: homeassistant
     id: player_state
     entity_id: ${player_entity}
@@ -170,6 +469,7 @@ text_sensor:
             lv_label_set_text(id(lbl_play_pause),
               x == "playing" ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
 
+  # -- Selected playlist name (from HA input_select) --
   - platform: homeassistant
     id: selected_playlist
     entity_id: input_select.music_playlist
@@ -178,34 +478,37 @@ text_sensor:
         - lambda: |-
             lv_label_set_text(id(lbl_playlist), x.c_str());
 
+# -------------------- FONTS --------------------
+# -- Single glyph set shared across all sizes via YAML anchor --
 font:
   - file: "gfonts://Roboto"
     id: roboto_16
     size: 16
-    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+    glyphs: &common_glyphs "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()'&ëéàüöäïîèêâûôùœæçñãõøåðþßýÿıİğšžčćđżźąęłóńáíúÁÉÀÈÌÒÙÂÊÎÔÛÄËÏÖÜÓÍÚÑÃÕØÅÆŒÇŽČŠĆĐŻŹĄĘŁ@#$+="
 
   - file: "gfonts://Roboto"
     id: roboto_22
     size: 22
-    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+    glyphs: *common_glyphs
 
   - file: "gfonts://Roboto"
     id: roboto_30
     size: 30
-    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+    glyphs: *common_glyphs
 
   - file: "gfonts://Roboto"
     id: roboto_36
     size: 36
-    glyphs: "АБВГДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгдеєжзиіїйклмнопрстуфхцчшщьюя0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .,!?-:/%()"
+    glyphs: *common_glyphs
 
+# -------------------- HTTP + ALBUM ART --------------------
 http_request:
   verify_ssl: false
   timeout: 10s
 
-# --------------- Background image --------------------
+# -- Initial URL is a placeholder; real URL is set dynamically via entity_picture sensor --
 online_image:
-  - url: "http://192.168.1.100:8123/api/media_player_proxy/media_player.jbl_bar_91_true_2?token=2cf71ed882fbbba76cf07e21fe9de82daf50fb8878e41afbc8910361d9bebc31"
+  - url: "${ha_url}/"
     id: album_art
     format: JPEG
     type: RGB565
@@ -231,7 +534,7 @@ lvgl:
   default_font: roboto_22
 
   style_definitions:
-    # Базова кнопка керування
+    # -- Default control button style --
     - id: style_ctrl_btn
       bg_color: 0x12122a
       bg_opa: COVER
@@ -242,11 +545,12 @@ lvgl:
       shadow_width: 0
       pad_all: 0
 
+    # -- Control button pressed state --
     - id: style_ctrl_btn_pressed
       bg_color: 0x00cfff
       text_color: 0x0a0a14
 
-    # Велика центральна кнопка play/pause
+    # -- Decoration circle style --
     - id: style_play_btn
       bg_color: 0x00cfff
       bg_opa: COVER
@@ -255,14 +559,15 @@ lvgl:
       text_color: 0x0a0a14
       shadow_width: 20
       shadow_color: 0x00cfff
-      shadow_opa: 80%       
+      shadow_opa: 80%
       pad_all: 0
 
+    # -- Decoration circle pressed state --
     - id: style_play_btn_pressed
       bg_color: 0x0090bb
       shadow_width: 5
 
-    # Кнопка гучності
+    # -- Volume button style --
     - id: style_vol_btn
       bg_color: 0x1a1a35
       bg_opa: COVER
@@ -273,10 +578,11 @@ lvgl:
       shadow_width: 0
       pad_all: 0
 
+    # -- Volume button pressed state --
     - id: style_vol_btn_pressed
       bg_color: 0x2a2a55
 
-    # Плейлист кнопка внизу
+    # -- Playlists button style --
     - id: style_playlist_btn
       bg_color: 0x0a0a14
       bg_opa: COVER
@@ -287,18 +593,19 @@ lvgl:
       shadow_width: 0
       pad_all: 0
 
+    # -- Playlists button pressed state --
     - id: style_playlist_btn_pressed
       bg_color: 0x12122a
       text_color: 0x00cfff
 
   pages:
     # ════════════════════════════════════════
-    # СТОРІНКА 1 — Плеєр
+    # PAGE 1 — Player
     # ════════════════════════════════════════
     - id: page_player
       widgets:
 
-        # ── Фонова обкладинка альбому ──
+        # -- Album art background (full screen, dimmed with recolor) --
         - image:
             id: album_art_img
             src: album_art
@@ -306,11 +613,11 @@ lvgl:
             y: 0
             width: 480
             height: 480
-            zoom: 0.96
+            zoom: 1
             image_recolor: 0x0a0a14
             image_recolor_opa: 60%
 
-        # ── Декоративна зовнішня дуга (прогрес або просто дизайн) ──
+        # -- Progress arc (shows track playback position) --
         - arc:
             id: progress_arc
             width: 400
@@ -320,8 +627,8 @@ lvgl:
             value: 0
             min_value: 0
             max_value: 100
-            start_angle: 135
-            end_angle: 45
+            start_angle: 150
+            end_angle: 30
             arc_color: 0x1a1a35
             arc_width: 4
             indicator:
@@ -329,8 +636,9 @@ lvgl:
               arc_width: 4
             adjustable: false
 
-        # ── Внутрішнє коло (декор) ──
+        # -- Decoration circle (background for title/artist/volume) --
         - button:
+            id: btn_decoration
             width: 320
             height: 200
             align: CENTER
@@ -344,7 +652,7 @@ lvgl:
                   text: ""
                   align: CENTER
 
-        # ── Назва треку ──
+        # -- Track title (scrolls if too long) --
         - label:
             id: lbl_title
             text: "No track"
@@ -356,7 +664,7 @@ lvgl:
             long_mode: SCROLL_CIRCULAR
             text_align: CENTER
 
-        # ── Виконавець ──
+        # -- Artist name (scrolls if too long) --
         - label:
             id: lbl_artist
             text: "Unknown"
@@ -368,7 +676,7 @@ lvgl:
             long_mode: SCROLL_CIRCULAR
             text_align: CENTER
 
-        # ── Гучність по центру кола ──
+        # -- Volume percentage label --
         - label:
             id: lbl_volume
             text: "--"
@@ -377,7 +685,7 @@ lvgl:
             align: CENTER
             y: 15
 
-        # ── Кнопка PREV ──
+        # -- Previous track button --
         - button:
             id: btn_prev
             styles: style_ctrl_btn
@@ -400,9 +708,9 @@ lvgl:
               - homeassistant.service:
                   service: media_player.media_previous_track
                   data:
-                    entity_id: media_player.jbl_bar_91_true_2
+                    entity_id: ${player_entity}
 
-        # ── Кнопка PLAY/PAUSE ──
+        # -- Play / Pause button --
         - button:
             id: btn_play_pause
             styles: style_ctrl_btn
@@ -425,9 +733,9 @@ lvgl:
               - homeassistant.service:
                   service: media_player.media_play_pause
                   data:
-                    entity_id: media_player.jbl_bar_91_true_2
+                    entity_id: ${player_entity}
 
-        # ── Кнопка NEXT ──
+        # -- Next track button --
         - button:
             id: btn_next
             styles: style_ctrl_btn
@@ -450,9 +758,9 @@ lvgl:
               - homeassistant.service:
                   service: media_player.media_next_track
                   data:
-                    entity_id: media_player.jbl_bar_91_true_2
+                    entity_id: ${player_entity}
 
-        # ── VOL- ──
+        # -- Volume down button --
         - button:
             id: btn_vol_down
             styles: style_vol_btn
@@ -474,9 +782,9 @@ lvgl:
               - homeassistant.service:
                   service: media_player.volume_down
                   data:
-                    entity_id: media_player.jbl_bar_91_true_2
+                    entity_id: ${player_entity}
 
-        # ── VOL+ ──
+        # -- Volume up button --
         - button:
             id: btn_vol_up
             styles: style_vol_btn
@@ -498,9 +806,9 @@ lvgl:
               - homeassistant.service:
                   service: media_player.volume_up
                   data:
-                    entity_id: media_player.jbl_bar_91_true_2
+                    entity_id: ${player_entity}
 
-        # ── Плейлісти ──
+        # -- Open playlists page button --
         - button:
             id: btn_to_playlists
             styles: style_playlist_btn
@@ -521,7 +829,7 @@ lvgl:
               - lvgl.page.show: page_playlists
 
     # ════════════════════════════════════════
-    # СТОРІНКА 2 — Плейлісти (залишається)
+    # PAGE 2 — Playlists
     # ════════════════════════════════════════
     - id: page_playlists
       widgets:
@@ -532,6 +840,7 @@ lvgl:
             align: TOP_MID
             y: 15
 
+        # -- Back to player button --
         - button:
             styles: style_vol_btn
             pressed:
@@ -549,6 +858,7 @@ lvgl:
             on_click:
               - lvgl.page.show: page_player
 
+        # -- Playlist slot 1 --
         - button:
             styles: style_ctrl_btn
             pressed:
@@ -566,6 +876,7 @@ lvgl:
             on_click:
               - lvgl.page.show: page_player
 
+        # -- Playlist slot 2 --
         - button:
             styles: style_ctrl_btn
             pressed:
@@ -583,6 +894,7 @@ lvgl:
             on_click:
               - lvgl.page.show: page_player
 
+        # -- Playlist slot 3 --
         - button:
             styles: style_ctrl_btn
             pressed:
@@ -600,6 +912,7 @@ lvgl:
             on_click:
               - lvgl.page.show: page_player
 
+        # -- Playlist slot 4 --
         - button:
             styles: style_ctrl_btn
             pressed:
