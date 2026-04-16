@@ -6,6 +6,8 @@ A touchscreen media controller built on **ESP32-4848S040** and **ESPHome**, desi
 
 [Blog with detail explanation](https://vahac.com/esp32-4848s040-media-controller-with-esphome-and-lvgl?utm_source=github))
 
+
+
 ![ESP32-4848S040](https://img.shields.io/badge/Hardware-ESP32--4848S040-blue)
 ![ESPHome](https://img.shields.io/badge/ESPHome-2026.3+-green)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.12+-orange)
