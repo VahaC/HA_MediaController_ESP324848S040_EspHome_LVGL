@@ -3,6 +3,7 @@
 # ESP32-4848S040 Media Controller for Music Assistant
 
 A touchscreen media controller built on **ESP32-4848S040** and **ESPHome**, designed to control [Music Assistant](https://music-assistant.io/) players running in Home Assistant.
+
 [Blog with detail explanation](https://vahac.com/esp32-4848s040-media-controller-with-esphome-and-lvgl?utm_source=github))
 
 ![ESP32-4848S040](https://img.shields.io/badge/Hardware-ESP32--4848S040-blue)
